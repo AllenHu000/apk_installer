@@ -60,6 +60,36 @@ iapk --version
 
 也可直接从 [Releases](https://github.com/AllenHu000/apk_installer/releases) 下载对应平台的压缩包（Windows 为 `.zip`），解压即用。
 
+## 跨平台构建说明
+
+`cargo build` 编译出的是**原生二进制**，只针对「当前这台机器」的平台（如 Apple Silicon Mac 得到 `aarch64-apple-darwin` 版），无法一次产出通吃所有系统的产物——这是原生编译语言的通性。查看本机默认目标：
+
+```bash
+rustc -vV | grep host
+```
+
+「跨平台」需区分两件事：
+
+### 1. 源码可移植（同一份代码在各 OS 都能编过并正确运行）
+
+- 优先使用标准库跨平台 API：`std::process::Command`、`std::fs`、`std::path::PathBuf`、`std::env::temp_dir()`
+- 不要硬编码 OS 专属命令或路径分隔符（例如用 `adb --version` 判断而非 `which adb`；用 `Path::join` 而非手拼 `/`、`\`）
+- 平台差异用条件编译隔离：`#[cfg(windows)]` / `#[cfg(unix)]`，或运行时 `cfg!(windows)`
+
+> 本项目源码已保证可移植（临时目录、`adb --version` 检测、`PathBuf` 均已处理）；产物名 `iapk` / `iapk.exe` 的后缀由工具链自动处理。
+
+### 2. 产出「其它 OS」的二进制（分发给不同系统的人）
+
+| 方式 | 说明 | 适用 |
+| --- | --- | --- |
+| **CI 多平台原生构建** | 各 OS 的 runner 上分别 `cargo build`（见 `.github/workflows/release.yml`） | 分发首选，最可靠 |
+| **`cargo-zigbuild`** | 以 zig 作链接器交叉编译，如 `cargo zigbuild --target x86_64-pc-windows-gnu` | 本地快速出多平台包 |
+| **`cross`** | 基于 Docker 的交叉编译，如 `cross build --target ...` | 交叉编 Linux 各架构 |
+
+> 本地直接 `cargo build --target <其它OS>` 通常会在**链接阶段失败**：`rustup target add` 只提供了标准库，链接还需要目标平台的 linker 与系统库（编 Windows 需 MSVC/mingw，编 Linux 需对应 glibc），宿主机一般没有。`cross` / `cargo-zigbuild` 正是用来解决链接工具链问题。
+
+**推荐做法**：无需本地折腾交叉编译——推送 `v*` tag（或在 Actions 手动触发 Release），GitHub 会在各原生 runner 上构建好 macOS/Linux/Windows 的全部产物并上传到 Releases。
+
 ## 使用
 
 基本用法：
