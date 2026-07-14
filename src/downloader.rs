@@ -59,12 +59,18 @@ fn download_to_file(url: &str, output_path: &Path) -> Result<(), Box<dyn Error>>
         ProgressBar::new_spinner()
     };
 
-    // 设置进度条样式
-    pb.set_style(
+    // 设置进度条样式（含实时下载速度 bytes_per_sec）
+    let style = if total_size > 0 {
         ProgressStyle::default_bar()
-            .template("[{elapsed_precise}] {bar:40.cyan/blue} {bytes}/{total_bytes} ({eta})")?
-            .progress_chars("#>-"),
-    );
+            .template(
+                "[{elapsed_precise}] {bar:40.cyan/blue} {bytes}/{total_bytes} ({bytes_per_sec}, {eta})",
+            )?
+            .progress_chars("#>-")
+    } else {
+        ProgressStyle::default_spinner()
+            .template("[{elapsed_precise}] {spinner} {bytes} ({bytes_per_sec})")?
+    };
+    pb.set_style(style);
 
     let mut file = File::create(output_path)?;
     let mut downloaded: u64 = 0;
@@ -84,24 +90,8 @@ fn download_to_file(url: &str, output_path: &Path) -> Result<(), Box<dyn Error>>
         file.write_all(chunk)?; // 写入文件
         downloaded += bytes_read as u64; // 更新已下载字节数
 
-        // 实时更新进度条
-        if total_size > 0 {
-            pb.set_position(downloaded);
-
-            // 计算并显示速度
-            if downloaded > 0 && downloaded.is_multiple_of(1024 * 1024) {
-                // 每1MB显示一次速度
-                let elapsed = pb.elapsed().as_secs_f64();
-                if elapsed > 0.0 {
-                    let speed = (downloaded as f64 / 1024.0 / 1024.0) / elapsed;
-                    pb.set_message(format!("{:.2} MB/s", speed));
-                }
-            }
-        } else {
-            // 对于未知大小的下载，显示当前下载大小
-            pb.set_message(format!("已下载: {} MB", downloaded / 1024 / 1024));
-            pb.tick();
-        }
+        // 实时更新进度（速度由进度条模板的 bytes_per_sec 自动计算）
+        pb.set_position(downloaded);
     }
 
     // 完成进度条
