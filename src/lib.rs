@@ -108,7 +108,10 @@ fn install_with_downgrade(
             new_code,
             current_code,
         } => {
-            let fmt = |c: Option<i64>| c.map(|v| v.to_string()).unwrap_or_else(|| "未知".to_string());
+            let fmt = |c: Option<i64>| {
+                c.map(|v| v.to_string())
+                    .unwrap_or_else(|| "未知".to_string())
+            };
             println!(
                 "警告：检测到版本降级 —— 待安装包版本号 {} 低于设备已安装版本 {}",
                 fmt(new_code),
@@ -133,9 +136,7 @@ fn install_with_downgrade(
             match device::install_apk(apk_path, device, true)? {
                 InstallOutcome::Success => Ok(true),
                 InstallOutcome::Failed(msg) => Err(format!("降级重装失败：{}", msg).into()),
-                InstallOutcome::DowngradeBlocked { .. } => {
-                    Err("降级重装仍被系统拒绝".into())
-                }
+                InstallOutcome::DowngradeBlocked { .. } => Err("降级重装仍被系统拒绝".into()),
             }
         }
     }

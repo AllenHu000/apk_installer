@@ -1,5 +1,7 @@
 # iapk — APK 下载安装工具
 
+[![CI](https://github.com/AllenHu000/apk_installer/actions/workflows/ci.yml/badge.svg)](https://github.com/AllenHu000/apk_installer/actions/workflows/ci.yml)
+
 一个用 Rust 编写的命令行工具，一步完成 **下载 APK → 选择设备 → 通过 ADB 安装**，并带有实时下载进度/速度显示、版本降级提示等能力。适合频繁给 Android 设备刷装测试包的场景。
 
 ## 功能特性

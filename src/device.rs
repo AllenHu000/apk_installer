@@ -194,17 +194,25 @@ mod tests {
     fn is_downgrade_error_detects_marker() {
         let stderr = "adb: failed to install app.apk: Failure [INSTALL_FAILED_VERSION_DOWNGRADE: Downgrade detected]";
         assert!(is_downgrade_error(stderr));
-        assert!(!is_downgrade_error("adb: failed to install app.apk: Failure [INSTALL_FAILED_INVALID_APK]"));
+        assert!(!is_downgrade_error(
+            "adb: failed to install app.apk: Failure [INSTALL_FAILED_INVALID_APK]"
+        ));
     }
 
     #[test]
     fn parse_downgrade_versions_extracts_both_codes() {
         let stderr = "adb: failed to install app.apk: Failure [INSTALL_FAILED_VERSION_DOWNGRADE: Downgrade detected: Update version code 78399321 is older than current 78400941]";
-        assert_eq!(parse_downgrade_versions(stderr), (Some(78399321), Some(78400941)));
+        assert_eq!(
+            parse_downgrade_versions(stderr),
+            (Some(78399321), Some(78400941))
+        );
     }
 
     #[test]
     fn parse_downgrade_versions_returns_none_when_absent() {
-        assert_eq!(parse_downgrade_versions("some unrelated error"), (None, None));
+        assert_eq!(
+            parse_downgrade_versions("some unrelated error"),
+            (None, None)
+        );
     }
 }
