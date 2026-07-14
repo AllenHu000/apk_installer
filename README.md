@@ -18,6 +18,7 @@
 - [Rust 工具链](https://rustup.rs/)（含 `cargo`，建议 stable）
 - **Android SDK Platform-Tools**，且 `adb` 已加入 `PATH`
   - macOS: `brew install --cask android-platform-tools`
+  - Windows: 下载 [Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 解压后将目录加入 `PATH`
   - 验证：`adb version` 与 `adb devices` 能正常输出
 - 目标设备已开启「USB 调试」并授权本机
 
@@ -46,6 +47,18 @@ iapk --version                          # 验证：apk_installer 0.3.0
 ```
 
 > 提示：裸命令 `iapk` 走 `PATH` 查找，可能指向旧的已安装版本。想确认跑的是新构建，用 `which iapk` 查看路径，或直接用 `./target/release/iapk` / `cargo run --release --` 调用。
+
+### Windows
+
+构建产物为 `target\release\iapk.exe`。可直接运行，或将其放到一个已加入 `PATH` 的目录（如 `%USERPROFILE%\bin`）：
+
+```powershell
+cargo build --release
+copy target\release\iapk.exe %USERPROFILE%\bin\iapk.exe
+iapk --version
+```
+
+也可直接从 [Releases](https://github.com/AllenHu000/apk_installer/releases) 下载对应平台的压缩包（Windows 为 `.zip`），解压即用。
 
 ## 使用
 

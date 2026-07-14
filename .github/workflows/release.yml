@@ -32,6 +32,8 @@ jobs:
             target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,13 +50,23 @@ jobs:
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Package (Unix)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           tag="${{ inputs.tag || github.ref_name }}"
           archive="${BIN_NAME}-${tag}-${{ matrix.target }}.tar.gz"
           tar -czf "$archive" -C "target/${{ matrix.target }}/release" "$BIN_NAME"
           echo "ASSET=$archive" >> "$GITHUB_ENV"
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.tag || github.ref_name }}"
+          $archive = "$env:BIN_NAME-$tag-${{ matrix.target }}.zip"
+          Compress-Archive -Path "target/${{ matrix.target }}/release/$env:BIN_NAME.exe" -DestinationPath $archive
+          "ASSET=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2

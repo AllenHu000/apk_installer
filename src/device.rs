@@ -4,9 +4,11 @@ use std::path::Path;
 use std::process::Command;
 
 /// 检查 ADB 是否已安装
+///
+/// 直接尝试执行 `adb --version`，跨平台可用（避免 which/where 差异）。
 pub fn check_adb_installed() -> bool {
-    Command::new("which")
-        .arg("adb")
+    Command::new("adb")
+        .arg("--version")
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false)
