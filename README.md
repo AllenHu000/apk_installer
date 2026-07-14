@@ -38,6 +38,44 @@ cargo build --release
 
 ## 安装
 
+### 方式一：下载预编译产物（推荐，无需装 Rust）
+
+前往 [Releases](https://github.com/AllenHu000/apk_installer/releases) 下载与你系统匹配的压缩包：
+
+| 系统 | 资产文件（示例） |
+| --- | --- |
+| Apple Silicon Mac | `iapk-v0.3.0-aarch64-apple-darwin.tar.gz` |
+| Intel Mac | `iapk-v0.3.0-x86_64-apple-darwin.tar.gz` |
+| Linux x64 | `iapk-v0.3.0-x86_64-unknown-linux-gnu.tar.gz` |
+| Windows x64 | `iapk-v0.3.0-x86_64-pc-windows-msvc.zip` |
+
+**macOS / Linux**：
+
+```bash
+# 解压（替换成你下载的文件名）
+tar -xzf iapk-v0.3.0-aarch64-apple-darwin.tar.gz
+
+# 赋予可执行权限并移动到 PATH 目录
+chmod +x iapk
+mv iapk ~/bin/iapk            # 确保 ~/bin 在 PATH 中；或用 /usr/local/bin
+iapk --version
+```
+
+> macOS 首次运行若被 Gatekeeper 拦截（提示「无法验证开发者」），执行一次 `xattr -d com.apple.quarantine ~/bin/iapk` 解除隔离即可。
+
+**Windows**（PowerShell）：
+
+```powershell
+# 解压 zip（替换成你下载的文件名）
+Expand-Archive iapk-v0.3.0-x86_64-pc-windows-msvc.zip -DestinationPath .
+
+# 移动到一个已在 PATH 中的目录，例如 %USERPROFILE%\bin
+move iapk.exe %USERPROFILE%\bin\iapk.exe
+iapk --version
+```
+
+### 方式二：从源码构建安装
+
 将发布版二进制拷贝到 `PATH` 中的任意目录即可，例如 `~/bin`：
 
 ```bash
@@ -48,17 +86,15 @@ iapk --version                          # 验证：apk_installer 0.3.0
 
 > 提示：裸命令 `iapk` 走 `PATH` 查找，可能指向旧的已安装版本。想确认跑的是新构建，用 `which iapk` 查看路径，或直接用 `./target/release/iapk` / `cargo run --release --` 调用。
 
-### Windows
+#### Windows（源码构建）
 
-构建产物为 `target\release\iapk.exe`。可直接运行，或将其放到一个已加入 `PATH` 的目录（如 `%USERPROFILE%\bin`）：
+构建产物为 `target\release\iapk.exe`。将其放到一个已加入 `PATH` 的目录（如 `%USERPROFILE%\bin`）：
 
 ```powershell
 cargo build --release
 copy target\release\iapk.exe %USERPROFILE%\bin\iapk.exe
 iapk --version
 ```
-
-也可直接从 [Releases](https://github.com/AllenHu000/apk_installer/releases) 下载对应平台的压缩包（Windows 为 `.zip`），解压即用。
 
 ## 跨平台构建说明
 
