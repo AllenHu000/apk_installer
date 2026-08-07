@@ -195,3 +195,7 @@ cargo run -- --help           # 用当前源码运行
 - `src/cli.rs` — 命令行参数定义
 - `src/downloader.rs` — 文件名解析与下载
 - `src/device.rs` — ADB 设备检测与安装
+
+
+## TODO
+- [ ] 下载中手动取消，缓存文件未清空

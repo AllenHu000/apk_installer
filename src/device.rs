@@ -1,13 +1,61 @@
 use dialoguer::Select;
+use std::env;
 use std::error::Error;
 use std::path::Path;
 use std::process::Command;
+use std::sync::OnceLock;
+
+/// 在 Windows 上可执行文件为 `adb.exe`，其他平台为 `adb`。
+fn adb_executable_name() -> &'static str {
+    if cfg!(windows) {
+        "adb.exe"
+    } else {
+        "adb"
+    }
+}
+
+/// 解析 adb 可执行文件路径。
+///
+/// Windows 下 `Command::new("adb")` 依赖的 PATH 查找不可靠（cmd 能找到但进程
+/// 创建时未命中），因此显式按以下顺序解析出完整路径：
+/// 1. 环境变量 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 下的 `platform-tools`
+/// 2. `PATH` 中的各目录（按平台追加可执行文件扩展名）
+/// 3. 回退到裸命令名，交给系统解析
+fn find_adb() -> String {
+    let exe = adb_executable_name();
+
+    for var in ["ANDROID_HOME", "ANDROID_SDK_ROOT"] {
+        if let Some(dir) = env::var_os(var) {
+            let candidate = Path::new(&dir).join("platform-tools").join(exe);
+            if candidate.is_file() {
+                return candidate.to_string_lossy().into_owned();
+            }
+        }
+    }
+
+    if let Some(path) = env::var_os("PATH") {
+        for dir in env::split_paths(&path) {
+            let candidate = dir.join(exe);
+            if candidate.is_file() {
+                return candidate.to_string_lossy().into_owned();
+            }
+        }
+    }
+
+    exe.to_string()
+}
+
+/// 返回缓存的 adb 可执行文件路径。
+fn adb_path() -> &'static str {
+    static ADB: OnceLock<String> = OnceLock::new();
+    ADB.get_or_init(find_adb).as_str()
+}
 
 /// 检查 ADB 是否已安装
 ///
 /// 直接尝试执行 `adb --version`，跨平台可用（避免 which/where 差异）。
 pub fn check_adb_installed() -> bool {
-    Command::new("adb")
+    Command::new(adb_path())
         .arg("--version")
         .output()
         .map(|output| output.status.success())
@@ -16,7 +64,7 @@ pub fn check_adb_installed() -> bool {
 
 /// 检查指定设备是否已连接
 pub fn check_device_connected(device: &str) -> Result<(), Box<dyn Error>> {
-    let output = Command::new("adb")
+    let output = Command::new(adb_path())
         .arg("-s")
         .arg(device)
         .arg("devices")
@@ -49,7 +97,7 @@ pub fn parse_device_list(adb_output: &str) -> Vec<String> {
 
 /// 自动选择设备
 pub fn select_device() -> Result<Option<String>, Box<dyn Error>> {
-    let output = Command::new("adb").arg("devices").output()?;
+    let output = Command::new(adb_path()).arg("devices").output()?;
 
     if !output.status.success() {
         return Err("执行 adb devices 命令失败".into());
@@ -126,7 +174,7 @@ pub fn install_apk(
     device: Option<&str>,
     allow_downgrade: bool,
 ) -> Result<InstallOutcome, Box<dyn Error>> {
-    let mut cmd = Command::new("adb");
+    let mut cmd = Command::new(adb_path());
 
     // 如果指定了设备，添加 -s 参数
     if let Some(device_id) = device {
