@@ -196,6 +196,22 @@ cargo run -- --help           # 用当前源码运行
 - `src/downloader.rs` — 文件名解析与下载
 - `src/device.rs` — ADB 设备检测与安装
 
+## 发布流程
+
+版本号以 [`Cargo.toml`](Cargo.toml) 的 `version` 为唯一来源，tag 名须与之保持一致（`v` + 版本号）。发布一个新版本：
+
+1. **改版本号**：在 `Cargo.toml` 中 bump `version`（如 `0.3.0` → `0.3.1`），遵循 [SemVer](https://semver.org/lang/zh-CN/)：修复用 patch、新增功能用 minor、破坏性变更用 major。
+2. **构建刷新 lock 并提交**：`cargo build` 后提交 `Cargo.toml` 与 `Cargo.lock`。
+3. **打 tag 并推送**：
+   ```bash
+   git tag -a v0.3.1 -m "v0.3.1"
+   git push origin main --tags
+   ```
+4. Release workflow 自动触发，先校验 **tag 与 `Cargo.toml` 版本一致**（不一致直接失败），再多平台构建并上传产物到 Releases。
+
+> 也可在 Actions 页手动触发 Release，输入一个已存在且版本匹配的 tag。
+>
+> 校验机制确保不会出现「tag 与二进制自报版本不一致」或「忘记 bump 导致版本重复」——忘了改 `Cargo.toml`，流水线会在 `verify` 阶段即失败。
 
 ## TODO
 - [ ] 下载中手动取消，缓存文件未清空

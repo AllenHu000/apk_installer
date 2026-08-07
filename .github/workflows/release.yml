@@ -19,8 +19,29 @@ env:
   BIN_NAME: iapk
 
 jobs:
+  verify:
+    name: Verify version matches tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Check Cargo.toml version == tag
+        shell: bash
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          tag_version="${tag#v}"
+          cargo_version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          echo "tag=$tag_version  Cargo.toml=$cargo_version"
+          if [ "$tag_version" != "$cargo_version" ]; then
+            echo "::error::tag ($tag_version) 与 Cargo.toml 版本 ($cargo_version) 不一致，请先在 Cargo.toml 中同步 bump 版本号再发布。"
+            exit 1
+          fi
+
   build:
     name: Build ${{ matrix.target }}
+    needs: verify
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
