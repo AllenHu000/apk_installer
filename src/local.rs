@@ -41,7 +41,11 @@ mod tests {
     use std::io::Write;
 
     fn temp_path(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("apk_installer_test_{}_{}", std::process::id(), name))
+        std::env::temp_dir().join(format!(
+            "apk_installer_test_{}_{}",
+            std::process::id(),
+            name
+        ))
     }
 
     #[test]
