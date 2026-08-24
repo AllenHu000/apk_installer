@@ -4,10 +4,15 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// APK 下载 URL，需包含 downloadName 参数
-    pub url: String,
+    /// APK 下载 URL，需包含 downloadName 参数（与 --file 互斥）
+    #[arg(conflicts_with = "file", required_unless_present = "file")]
+    pub url: Option<String>,
 
-    /// 输出目录，默认为系统临时目录
+    /// 本地 APK 文件路径，跳过下载直接安装（与 URL 互斥）
+    #[arg(short, long, conflicts_with = "url")]
+    pub file: Option<String>,
+
+    /// 输出目录，默认为系统临时目录（仅下载模式有效）
     #[arg(short, long)]
     pub output_dir: Option<String>,
 
@@ -15,8 +20,8 @@ pub struct Args {
     #[arg(short, long)]
     pub device: Option<String>,
 
-    /// 强制覆盖已存在的文件，不询问
-    #[arg(short, long)]
+    /// 强制覆盖已存在的文件，不询问（仅下载模式有效）
+    #[arg(short = 'F', long)]
     pub force: bool,
 
     /// 安装成功后保留下载的 APK 文件（默认安装后自动删除）
