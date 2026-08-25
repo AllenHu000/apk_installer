@@ -113,7 +113,7 @@ fn run_local(args: &Args, file: &str) -> Result<(), Box<dyn Error>> {
     // 3. 安装成功后询问是否清除（本地文件默认保留；无交互环境下默认保留）
     println!("安装成功！");
     let should_remove = Confirm::new()
-        .with_prompt("遗漏的安装包会持续占用磁盘空间，是否清除？")
+        .with_prompt("安装包已完成使命，保留会占用磁盘空间，是否删除？")
         .default(false)
         .interact()
         .unwrap_or(false);
