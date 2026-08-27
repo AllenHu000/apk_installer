@@ -1,9 +1,11 @@
 use dialoguer::Select;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::env;
 use std::error::Error;
 use std::path::Path;
 use std::process::Command;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 /// 在 Windows 上可执行文件为 `adb.exe`，其他平台为 `adb`。
 fn adb_executable_name() -> &'static str {
@@ -188,15 +190,27 @@ pub fn install_apk(
     }
     cmd.arg(apk_path);
 
+    // 安装期间 adb 会阻塞数秒且无输出，用 spinner 提供实时反馈
+    let spinner = ProgressBar::new_spinner();
+    if let Ok(style) =
+        ProgressStyle::default_spinner().template("{spinner:.cyan} [{elapsed_precise}] {msg}")
+    {
+        spinner.set_style(style);
+    }
+    spinner.set_message("安装中…");
+    spinner.enable_steady_tick(Duration::from_millis(100));
+
     // 执行命令
     let output = cmd.output()?;
 
     if output.status.success() {
+        spinner.finish_and_clear();
         let success_msg = String::from_utf8_lossy(&output.stdout);
         println!("安装成功：{}", success_msg);
         return Ok(InstallOutcome::Success);
     }
 
+    spinner.finish_and_clear();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     if is_downgrade_error(&stderr) {
         let (new_code, current_code) = parse_downgrade_versions(&stderr);
