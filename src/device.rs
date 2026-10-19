@@ -1,3 +1,4 @@
+use apk_info::Apk;
 use dialoguer::Select;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::env;
@@ -145,6 +146,87 @@ pub enum InstallOutcome {
     Failed(String),
 }
 
+/// APK 中声明的可启动 Activity。
+#[derive(Debug, PartialEq, Eq)]
+pub struct LaunchTarget {
+    package_name: String,
+    activity_name: String,
+}
+
+impl LaunchTarget {
+    fn component_name(&self) -> String {
+        format!("{}/{}", self.package_name, self.activity_name)
+    }
+}
+
+fn qualify_activity_name(package_name: &str, activity_name: &str) -> String {
+    if activity_name.starts_with('.') {
+        format!("{}{}", package_name, activity_name)
+    } else if activity_name.contains('.') {
+        activity_name.to_string()
+    } else {
+        format!("{}.{}", package_name, activity_name)
+    }
+}
+
+/// 从 APK manifest 中读取安装后需要启动的应用组件。
+pub fn extract_launch_target(apk_path: &Path) -> Result<Option<LaunchTarget>, Box<dyn Error>> {
+    let apk = Apk::new(apk_path).map_err(|error| format!("无法解析 APK manifest：{}", error))?;
+    let package_name = apk
+        .get_package_name()
+        .ok_or("APK manifest 缺少 package 名称")?;
+    let Some(activity_name) = apk.get_main_activity() else {
+        return Ok(None);
+    };
+
+    Ok(Some(LaunchTarget {
+        activity_name: qualify_activity_name(&package_name, activity_name),
+        package_name,
+    }))
+}
+
+fn contains_launch_error(stdout: &str, stderr: &str) -> bool {
+    stdout.contains("Error:")
+        || stdout.contains("Exception")
+        || stderr.contains("Error:")
+        || stderr.contains("Exception")
+}
+
+/// 在指定设备上打开已安装应用的 launcher Activity。
+pub fn launch_app(target: &LaunchTarget, device: Option<&str>) -> Result<(), Box<dyn Error>> {
+    let mut cmd = Command::new(adb_path());
+
+    if let Some(device_id) = device {
+        cmd.arg("-s").arg(device_id);
+    }
+
+    let output = cmd
+        .arg("shell")
+        .arg("am")
+        .arg("start")
+        .arg("-a")
+        .arg("android.intent.action.MAIN")
+        .arg("-c")
+        .arg("android.intent.category.LAUNCHER")
+        .arg("-n")
+        .arg(target.component_name())
+        .output()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() || contains_launch_error(&stdout, &stderr) {
+        let details = if stderr.trim().is_empty() {
+            stdout.trim()
+        } else {
+            stderr.trim()
+        };
+        return Err(format!("自动打开 App 失败：{}", details).into());
+    }
+
+    println!("已自动打开 App：{}", target.package_name);
+    Ok(())
+}
+
 /// 判断 adb 的 stderr 是否为版本降级失败
 pub fn is_downgrade_error(stderr: &str) -> bool {
     stderr.contains("INSTALL_FAILED_VERSION_DOWNGRADE")
@@ -278,5 +360,33 @@ mod tests {
             parse_downgrade_versions("some unrelated error"),
             (None, None)
         );
+    }
+
+    #[test]
+    fn qualifies_relative_and_short_activity_names() {
+        assert_eq!(
+            qualify_activity_name("com.example.app", ".MainActivity"),
+            "com.example.app.MainActivity"
+        );
+        assert_eq!(
+            qualify_activity_name("com.example.app", "MainActivity"),
+            "com.example.app.MainActivity"
+        );
+        assert_eq!(
+            qualify_activity_name("com.example.app", "com.example.ui.MainActivity"),
+            "com.example.ui.MainActivity"
+        );
+    }
+
+    #[test]
+    fn detects_am_start_errors_without_rejecting_warnings() {
+        assert!(contains_launch_error(
+            "Error type 3\nError: Activity class does not exist.",
+            ""
+        ));
+        assert!(!contains_launch_error(
+            "Warning: Activity not started, intent has been delivered to currently running instance.",
+            ""
+        ));
     }
 }

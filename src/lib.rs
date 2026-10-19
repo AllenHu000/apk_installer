@@ -148,15 +148,27 @@ fn connect_and_install(
     }
 
     // 2. 检查设备连接状态
-    let device = if let Some(device) = device {
+    let selected_device = if let Some(device) = device {
         device::check_device_connected(&device)?;
         Some(device)
     } else {
         device::select_device()?
     };
 
-    // 3. 安装 APK（自动处理版本降级）
-    install_with_downgrade(apk_path, device.as_deref(), downgrade)
+    // 3. 读取启动组件并安装 APK（自动处理版本降级）
+    let launch_target = device::extract_launch_target(apk_path)?;
+    let installed = install_with_downgrade(apk_path, selected_device.as_deref(), downgrade)?;
+
+    // 4. 安装成功后自动打开 App
+    if installed {
+        if let Some(target) = launch_target {
+            device::launch_app(&target, selected_device.as_deref())?;
+        } else {
+            eprintln!("提示：安装包未声明可启动 Activity，已跳过自动打开");
+        }
+    }
+
+    Ok(installed)
 }
 
 /// 安装 APK，并在检测到版本降级时提示 / 降级重装。

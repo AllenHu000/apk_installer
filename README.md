@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/AllenHu000/apk_installer/actions/workflows/ci.yml/badge.svg)](https://github.com/AllenHu000/apk_installer/actions/workflows/ci.yml)
 
-一个用 Rust 编写的命令行工具，一步完成 **下载 APK → 选择设备 → 通过 ADB 安装**，并带有实时下载进度/速度显示、版本降级提示等能力。适合频繁给 Android 设备刷装测试包的场景。
+一个用 Rust 编写的命令行工具，一步完成 **下载 APK → 选择设备 → 通过 ADB 安装 → 自动打开 App**，并带有实时下载进度/速度显示、版本降级提示等能力。适合频繁给 Android 设备刷装测试包的场景。
 
 除下载模式外，还支持 **本地安装模式**（`-f/--file`）：跳过下载，直接对本地 APK 文件执行 **有效性校验 → 选择设备 → 通过 ADB 安装**。适用于 adb 断连后凭已下载文件续装、或安装他人分享的本地安装包。
 
@@ -16,6 +16,7 @@
 - 本地模式默认保留源文件，安装成功后交互询问是否清除（无 TTY 时默认保留）
 - 下载中途失败自动删除半成品文件，不留残留
 - 检测到「版本降级」时给出明确提示，确认后自动 `adb install -r -d` 重装（`-D` 可免询问）
+- 从 APK manifest 识别 launcher Activity，安装成功后在目标设备上自动打开 App
 
 ## 环境要求
 
@@ -48,16 +49,16 @@ cargo build --release
 
 | 系统 | 资产文件（示例） |
 | --- | --- |
-| Apple Silicon Mac | `iapk-v0.3.0-aarch64-apple-darwin.tar.gz` |
-| Intel Mac | `iapk-v0.3.0-x86_64-apple-darwin.tar.gz` |
-| Linux x64 | `iapk-v0.3.0-x86_64-unknown-linux-gnu.tar.gz` |
-| Windows x64 | `iapk-v0.3.0-x86_64-pc-windows-msvc.zip` |
+| Apple Silicon Mac | `iapk-v0.5.0-aarch64-apple-darwin.tar.gz` |
+| Intel Mac | `iapk-v0.5.0-x86_64-apple-darwin.tar.gz` |
+| Linux x64 | `iapk-v0.5.0-x86_64-unknown-linux-gnu.tar.gz` |
+| Windows x64 | `iapk-v0.5.0-x86_64-pc-windows-msvc.zip` |
 
 **macOS / Linux**：
 
 ```bash
 # 解压（替换成你下载的文件名）
-tar -xzf iapk-v0.3.0-aarch64-apple-darwin.tar.gz
+tar -xzf iapk-v0.5.0-aarch64-apple-darwin.tar.gz
 
 # 赋予可执行权限并移动到 PATH 目录
 chmod +x iapk
@@ -71,7 +72,7 @@ iapk --version
 
 ```powershell
 # 解压 zip（替换成你下载的文件名）
-Expand-Archive iapk-v0.3.0-x86_64-pc-windows-msvc.zip -DestinationPath .
+Expand-Archive iapk-v0.5.0-x86_64-pc-windows-msvc.zip -DestinationPath .
 
 # 移动到一个已在 PATH 中的目录，例如 %USERPROFILE%\bin
 move iapk.exe %USERPROFILE%\bin\iapk.exe
@@ -85,7 +86,7 @@ iapk --version
 ```bash
 cargo build --release
 cp target/release/iapk ~/bin/iapk      # 确保 ~/bin 在 PATH 中
-iapk --version                          # 验证：apk_installer 0.3.0
+iapk --version                          # 验证：apk_installer 0.5.0
 ```
 
 > 提示：裸命令 `iapk` 走 `PATH` 查找，可能指向旧的已安装版本。想确认跑的是新构建，用 `which iapk` 查看路径，或直接用 `./target/release/iapk` / `cargo run --release --` 调用。
@@ -160,7 +161,7 @@ iapk -f <APK 文件路径> [选项]   # 本地安装模式
 ### 示例
 
 ```bash
-# 最简：下载并安装到唯一连接的设备
+# 最简：下载、安装并自动打开 App
 iapk "https://cdn.example.com/app.apk?downloadName=app-release.apk"
 
 # 指定设备（多设备场景）
@@ -190,7 +191,8 @@ iapk -f ./app.apk -d DP01D41N10065
 5. 检查 `adb` 是否可用
 6. 选择设备（指定 / 单设备直用 / 多设备交互选择）
 7. 安装 APK；若被系统以「版本降级」拒绝，提示版本号并确认后 `-r -d` 重装
-8. 安装成功后清理临时文件（`--keep` 保留）
+8. 安装成功后自动打开 App（未声明 launcher Activity 时跳过并提示）
+9. 清理临时文件（`--keep` 保留）
 
 **本地模式（`-f/--file`）**
 
@@ -198,7 +200,8 @@ iapk -f ./app.apk -d DP01D41N10065
 2. 检查 `adb` 是否可用
 3. 选择设备（指定 / 单设备直用 / 多设备交互选择）
 4. 安装 APK；若被系统以「版本降级」拒绝，提示版本号并确认后 `-r -d` 重装
-5. 安装成功后交互询问是否清除源文件（默认保留；无 TTY 时默认保留）
+5. 安装成功后自动打开 App（未声明 launcher Activity 时跳过并提示）
+6. 交互询问是否清除源文件（默认保留；无 TTY 时默认保留）
 
 > `.aab` 等格式暂不支持，后续可扩展。
 
@@ -223,7 +226,7 @@ cargo run -- --help           # 用当前源码运行
 - `src/cli.rs` — 命令行参数定义
 - `src/downloader.rs` — 文件名解析与下载
 - `src/local.rs` — 本地 APK 资源包有效性校验
-- `src/device.rs` — ADB 设备检测与安装
+- `src/device.rs` — APK 启动组件解析，以及 ADB 设备检测、安装与 App 启动
 
 ## 发布流程
 
